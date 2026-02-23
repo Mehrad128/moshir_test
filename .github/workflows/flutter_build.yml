@@ -1,47 +1,46 @@
-name: Flutter Build APK
+name: Build Flutter APK
 
 on:
   push:
-    branches:
-      - main
-  schedule:
-    - cron: '0 0 * * 0'  # آپدیت هفتگی (اختیاری)
-  workflow_dispatch:      # اجرای دستی
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter with latest version
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'latest'   # همیشه آخرین نسخه پایدار را نصب کن
           channel: 'stable'
-
-      - name: Verify Flutter and Dart versions
-        run: |
-          echo "Flutter version:"
-          flutter --version
-          echo "Dart version:"
-          dart --version
-
-      - name: Clean and upgrade dependencies
-        run: |
-          flutter clean
-          flutter pub upgrade
-
+          flutter-version: '3.x'
+      
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Build APK
+      
+      - name: Build Debug APK (قابل نصب روی همه گوشی‌ها)
         run: flutter build apk --debug
-
-      - name: Upload APK
+      
+      - name: Build Release APK (نیاز به امضا داره)
+        run: flutter build apk --release --split-per-abi
+      
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: all-apks
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-release.apk
+          retention-days: 30
