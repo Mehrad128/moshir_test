@@ -1,20 +1,3 @@
-buildscript {
-    ext {
-        set("compileSdkVersion", 34)
-        set("minSdkVersion", 21)
-        set("targetSdkVersion", 34)
-        set("kotlinVersion", "1.9.22")
-    }
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.9.1")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${ext.get("kotlinVersion")}")
-    }
-}
-
 allprojects {
     repositories {
         google()
