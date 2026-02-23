@@ -1,122 +1,174 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+// import 'package:moshir_ui/services/firebase_service.dart';
+// import 'package:moshir_ui/services/platform_service.dart';
+import 'package:moshir_test/ui/providers/settings_provider.dart';
+import 'package:moshir_test/ui/splash/splash_screen.dart';
+import 'package:moshir_test/ui/components/theme_notifier.dart';
+// import 'package:moshir_ui/services/notification_service.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+// import 'package:timezone/data/latest.dart' as tz;
 
-void main() {
-  runApp(const MyApp());
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  // هندلر پس‌زمینه
+  print('نوتیفیکیشن پس‌زمینه: ${notificationResponse.payload}');
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: "AIzaSyDLdbc3S7Uplz-dVMNv1Iutm4Rei10WxAE",
+          authDomain: "moshir-bb5ff.firebaseapp.com",
+          projectId: "moshir-bb5ff",
+          storageBucket: "moshir-bb5ff.firebasestorage.app",
+          messagingSenderId: "848364028034",
+          appId: "1:848364028034:web:a0596b73cfafc0a9b9749b",
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+
+    // ✅ اینجا بهترین جا برای onMessage.listen هست
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('📨 پیام در foreground دریافت شد');
+      
+      // // نمایش نوتیفیکیشن با flutter_local_notifications
+      // NotificationService().showSimpleNotification(
+      //   title: message.notification?.title ?? 'اعلان جدید',
+      //   body: message.notification?.body ?? '',
+      // );
+    });
+
+    print('✅ Firebase روی وب مقداردهی شد');
+  } catch (e) {
+    print('❌ خطا: $e');
+  }
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeNotifier()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    final themeMode = Provider.of<ThemeNotifier>(context).themeMode;
+
     return MaterialApp(
-      title: 'Flutter Demo',
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('fa'), // Farsi
+      ],
+      themeMode: themeMode,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+        brightness: Brightness.light,
+        fontFamily: 'Vazirmatn',
+        primaryColor: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.blue,
+          unselectedItemColor: Colors.grey,
+        ),
+        textTheme: const TextTheme(
+          headlineSmall: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: Color.fromARGB(255, 134, 144, 162),
+          ),
+          bodySmall: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: Color.fromARGB(255, 56, 61, 72),
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 25,
+            fontWeight: FontWeight.w900,
+            color: Color.fromARGB(255, 56, 61, 72),
+          ),
+          labelMedium: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 100,
+            fontWeight: FontWeight.w900,
+            color: Color.fromARGB(255, 56, 61, 72),
+          ),
+          labelSmall: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 32,
+            fontWeight: FontWeight.w500,
+            color: Color.fromARGB(255, 56, 61, 72),
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        fontFamily: 'Vazirmatn',
+        primaryColor: Colors.orange,
+        scaffoldBackgroundColor: Colors.black,
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Colors.black,
+          selectedItemColor: Colors.orange,
+          unselectedItemColor: Colors.grey,
+        ),
+        textTheme: const TextTheme(
+          headlineSmall: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+          bodySmall: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: Colors.white70,
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 25,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
+        ),
       ),
+      debugShowCheckedModeBanner: false,
+      home: const SplashScreen(),
     );
+  }
+
+  String getTime() {
+    DateTime now = DateTime.now();
+    return DateFormat('kk:mm:ss').format(now);
+  }
+
+  String getDate() {
+    DateTime now = DateTime.now();
+    return DateFormat('yyyy-MM-dd').format(now);
   }
 }
