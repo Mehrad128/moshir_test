@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moshir_test/main.dart';
 import 'package:moshir_test/test/test_firebase_page.dart';
+import 'package:moshir_test/ui/screens/lazy_loading.dart';
 import 'package:moshir_test/ui/screens/settings.dart';
 import 'package:moshir_test/ui/screens/user_profile.dart';
 
@@ -67,6 +68,18 @@ class _HeaderMenuButton extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => TestFirebasePage()),
+                  );
+                },
+              ),
+              CupertinoActionSheetAction(
+                child: Text(
+                  'Lazy Load API',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => LazyLoadingPage()),
                   );
                 },
               ),
