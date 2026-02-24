@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moshir_test/services/biometric_service.dart';
+import 'package:moshir_test/services/biometric_types.dart';
+import 'package:moshir_test/services/face_camera_service.dart'; // سرویس جدید
 
 class BiometricSettingsPage extends StatefulWidget {
   const BiometricSettingsPage({super.key});
@@ -10,12 +12,17 @@ class BiometricSettingsPage extends StatefulWidget {
 }
 
 class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
-  final _service = BiometricService();
+  final _bioService = BiometricService();
+  final _faceService = FaceCameraService();
+
   bool _isLoading = true;
-  bool _isAvailable = false;
-  bool _isEnabled = false;
-  String _biometricName = 'بیومتریک';
-  IconData _biometricIcon = Icons.fingerprint;
+  bool _hasStrongBiometric = false; // وجود بیومتریک قوی (local_auth)
+  bool _strongEnabled = false; // وضعیت فعال بودن بیومتریک قوی
+  String _strongName = 'اثر انگشت';
+  IconData _strongIcon = Icons.fingerprint;
+
+  bool _hasFrontCamera = false; // وجود دوربین جلو
+  bool _faceCameraEnabled = false; // وضعیت فعال بودن تشخیص چهره با دوربین
 
   @override
   void initState() {
@@ -26,32 +33,58 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    _isAvailable = await _service.isAvailable;
-    if (_isAvailable) {
-      _biometricName = await _service.getBiometricName();
-      _biometricIcon = await _service.getBiometricIcon();
-      _isEnabled = await _service.isEnabled;
+    // بررسی بیومتریک قوی
+    _hasStrongBiometric = await _bioService.isAvailable;
+    if (_hasStrongBiometric) {
+      final types = await _bioService.getAvailableBiometrics();
+      if (types.contains(MyBiometricType.fingerprint)) {
+        _strongName = 'اثر انگشت';
+        _strongIcon = Icons.fingerprint;
+      } else if (types.contains(MyBiometricType.face)) {
+        _strongName = 'تشخیص چهره (امن)';
+        _strongIcon = Icons.face;
+      } else {
+        _strongName = 'بیومتریک';
+        _strongIcon = Icons.biotech;
+      }
+      _strongEnabled = await _bioService.isEnabled;
+    }
+
+    // بررسی دوربین جلو
+    _hasFrontCamera = await _faceService.hasFrontCamera();
+    if (_hasFrontCamera) {
+      _faceCameraEnabled = await _faceService.isEnabled;
     }
 
     setState(() => _isLoading = false);
   }
 
-  Future<void> _toggle(bool value) async {
+  Future<void> _toggleStrong(bool value) async {
     setState(() => _isLoading = true);
-
     if (value) {
-      final success = await _service.enableBiometric(
+      // فعال‌سازی بیومتریک قوی
+      final success = await _bioService.enableBiometric(
         userId: 'current_user_id',
         password: 'current_password',
       );
-      if (success) {
-        _showMessage('✅ فعال شد');
-      }
+      if (success) _showMessage('✅ بیومتریک امن فعال شد');
     } else {
-      await _service.disableBiometric();
-      _showMessage('🔴 غیرفعال شد');
+      await _bioService.disableBiometric();
+      _showMessage('🔴 بیومتریک امن غیرفعال شد');
     }
+    await _loadData();
+  }
 
+  Future<void> _toggleFaceCamera(bool value) async {
+    setState(() => _isLoading = true);
+    if (value) {
+      // فعال‌سازی تشخیص چهره با دوربین
+      final success = await _faceService.enableFaceCamera();
+      if (success) _showMessage('✅ تشخیص چهره با دوربین فعال شد');
+    } else {
+      await _faceService.disableFaceCamera();
+      _showMessage('🔴 تشخیص چهره با دوربین غیرفعال شد');
+    }
     await _loadData();
   }
 
@@ -59,25 +92,6 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
-  }
-
-  Future<void> _testAuth() async {
-    final result = await _service.authenticate(reason: 'تست بیومتریک');
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(result.success ? '✅ موفق' : '❌ ناموفق'),
-        content: Text(result.message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('باشه'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -98,48 +112,47 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
           ? const Center(child: CircularProgressIndicator())
           : Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
+              child: ListView(
                 children: [
-                  if (!_isAvailable) _buildUnavailable(),
-                  if (_isAvailable) ...[
-                    _buildCard(isDark),
-                    const SizedBox(height: 24),
-                    _buildTestButton(),
+                  if (!_hasStrongBiometric && !_hasFrontCamera)
+                    _buildUnavailable(),
+                  if (_hasStrongBiometric)
+                    _buildCard(
+                      title: 'ورود با $_strongName',
+                      subtitle: 'روش امن مبتنی بر سخت‌افزار',
+                      icon: _strongIcon,
+                      value: _strongEnabled,
+                      onChanged: _toggleStrong,
+                      isDark: isDark,
+                    ),
+                  if (_hasFrontCamera) ...[
+                    const SizedBox(height: 16),
+                    _buildCard(
+                      title: 'ورود با چهره (دوربین)',
+                      subtitle: 'تشخیص چهره با دوربین - امنیت کمتر',
+                      icon: Icons.camera_front,
+                      value: _faceCameraEnabled,
+                      onChanged: _toggleFaceCamera,
+                      isDark: isDark,
+                    ),
                   ],
+                  const SizedBox(height: 24),
+                  if (_hasStrongBiometric || _hasFrontCamera)
+                    _buildTestButtons(),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildUnavailable() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.orange.shade200),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.warning, size: 48, color: Colors.orange.shade700),
-          const SizedBox(height: 16),
-          const Text(
-            'بیومتریک پشتیبانی نمی‌شود',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'دستگاه شما از احراز هویت بیومتریک پشتیبانی نمی‌کند.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCard(bool isDark) {
+  Widget _buildCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool value,
+    required Function(bool) onChanged,
+    required bool isDark,
+  }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -157,7 +170,7 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
               color: Colors.blue.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(_biometricIcon, color: Colors.blue, size: 28),
+            child: Icon(icon, color: Colors.blue, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -165,7 +178,7 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'ورود با $_biometricName',
+                  title,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -173,15 +186,15 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'از این قابلیت برای ورود سریع استفاده کنید',
+                  subtitle,
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                 ),
               ],
             ),
           ),
           Switch(
-            value: _isEnabled,
-            onChanged: _toggle,
+            value: value,
+            onChanged: onChanged,
             activeColor: Colors.blue,
           ),
         ],
@@ -189,13 +202,91 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
     );
   }
 
-  Widget _buildTestButton() {
-    return ElevatedButton.icon(
-      onPressed: _testAuth,
-      icon: const Icon(Icons.fingerprint),
-      label: const Text('تست بیومتریک'),
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 50),
+  Widget _buildUnavailable() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.warning, size: 48, color: Colors.orange.shade700),
+          const SizedBox(height: 16),
+          const Text(
+            'هیچ روش بیومتریکی یافت نشد',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'دستگاه شما از احراز هویت بیومتریک پشتیبانی نمی‌کند و دوربین جلویی برای تشخیص چهره موجود نیست.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTestButtons() {
+    return Column(
+      children: [
+        ElevatedButton.icon(
+          onPressed: _testStrongAuth,
+          icon: const Icon(Icons.fingerprint),
+          label: const Text('تست بیومتریک امن'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 50),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_hasFrontCamera)
+          ElevatedButton.icon(
+            onPressed: _testFaceCamera,
+            icon: const Icon(Icons.camera_alt),
+            label: const Text('تست تشخیص چهره با دوربین'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50),
+              backgroundColor: Colors.green,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _testStrongAuth() async {
+    if (!_hasStrongBiometric) {
+      _showMessage('بیومتریک امن در دسترس نیست');
+      return;
+    }
+    final result = await _bioService.authenticate(reason: 'تست بیومتریک امن');
+    _showDialog(result.success ? '✅ موفق' : '❌ ناموفق', result.message);
+  }
+
+  Future<void> _testFaceCamera() async {
+    if (!_hasFrontCamera) {
+      _showMessage('دوربین جلو موجود نیست');
+      return;
+    }
+    // در عمل باید از faceService.authenticateWithFace() استفاده کنید
+    final success = await _faceService.authenticateWithFace();
+    _showDialog(success ? '✅ موفق' : '❌ ناموفق', success ? 'چهره تطابق داشت' : 'خطا در تشخیص');
+  }
+
+  void _showDialog(String title, String content) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('باشه'),
+          ),
+        ],
       ),
     );
   }

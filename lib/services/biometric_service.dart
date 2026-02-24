@@ -3,6 +3,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:moshir_test/services/biometric_types.dart';
+import 'package:moshir_test/services/face_camera_service.dart'; // اضافه شد
 
 /// نتیجه احراز هویت
 class BiometricAuthResult {
@@ -139,6 +140,13 @@ class BiometricService {
     return types.contains(MyBiometricType.face);
   }
 
+  // ============== متد جدید برای بررسی دوربین جلو ==============
+  /// بررسی وجود دوربین جلو برای تشخیص چهره با دوربین
+  Future<bool> get hasFrontCamera async {
+    final faceService = FaceCameraService();
+    return await faceService.hasFrontCamera();
+  }
+
   // ============== احراز هویت ==============
 
   /// احراز هویت با بیومتریک
@@ -152,14 +160,12 @@ class BiometricService {
         );
       }
 
-      // ✅ اصلاح شده: بدون options اضافی
       final isAuthenticated = await _localAuth.authenticate(
         localizedReason: reason,
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,
-        )
-        // biometricOnly: false,
+          biometricOnly: true,
+        ),
       );
 
       if (isAuthenticated) {
