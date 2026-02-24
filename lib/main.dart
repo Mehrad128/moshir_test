@@ -1,6 +1,6 @@
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -40,16 +40,16 @@ void main() async {
       await Firebase.initializeApp();
     }
 
-    // ✅ اینجا بهترین جا برای onMessage.listen هست
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('📨 پیام در foreground دریافت شد');
+    // // ✅ اینجا بهترین جا برای onMessage.listen هست
+    // FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    //   print('📨 پیام در foreground دریافت شد');
       
-      // // نمایش نوتیفیکیشن با flutter_local_notifications
-      // NotificationService().showSimpleNotification(
-      //   title: message.notification?.title ?? 'اعلان جدید',
-      //   body: message.notification?.body ?? '',
-      // );
-    });
+    //   // // نمایش نوتیفیکیشن با flutter_local_notifications
+    //   // NotificationService().showSimpleNotification(
+    //   //   title: message.notification?.title ?? 'اعلان جدید',
+    //   //   body: message.notification?.body ?? '',
+    //   // );
+    // });
 
     print('✅ Firebase روی وب مقداردهی شد');
   } catch (e) {

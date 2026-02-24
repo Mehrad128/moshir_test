@@ -65,10 +65,10 @@ class _HeaderMenuButton extends StatelessWidget {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => TestFirebasePage()),
-                  );
+                  // Navigator.push(
+                  //   context,
+                  //   MaterialPageRoute(builder: (context) => TestFirebasePage()),
+                  // );
                 },
               ),
               CupertinoActionSheetAction(
