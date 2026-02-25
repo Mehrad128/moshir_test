@@ -10,6 +10,7 @@ import 'package:moshir_test/ui/screens/calendar.dart';
 import 'package:moshir_test/ui/screens/history.dart';
 import 'package:moshir_test/services/notification_service.dart';
 import 'package:moshir_test/services/platform_service.dart';
+import 'package:vibration/vibration.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -490,7 +491,7 @@ class _HomePageState extends State<HomePage> {
                     title: const Text('FCM Token'),
                     content: SelectableText(
                       // token ??
-                          '❌ توکن وجود نداره\n\nاول Firebase رو مقداردهی کن',
+                      '❌ توکن وجود نداره\n\nاول Firebase رو مقداردهی کن',
                     ),
                     actions: [
                       TextButton(
@@ -538,6 +539,18 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
+            ElevatedButton.icon(
+              onPressed: () {
+                VibrationHelper.vibrate(durationMs: 500); // نیم ثانیه ویبره
+              },
+              icon: const Icon(Icons.vibration, size: 16),
+              label: const Text('ویبره'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.black,
+              ),
+            ),
+
             // دکمه پاک کردن
             ElevatedButton.icon(
               onPressed: () async {
@@ -545,15 +558,6 @@ class _HomePageState extends State<HomePage> {
                   _notificationCount = 0;
                   _hasNewNotification = false;
                 });
-
-                // try {
-                //   if (PlatformService.isAndroid || PlatformService.isIOS) {
-                //     await NotificationService().setBadge(0);
-                //   }
-                //   await NotificationService().cancelAllNotifications();
-                // } catch (e) {
-                //   debugPrint('خطا: $e');
-                // }
               },
               icon: const Icon(Icons.clear, size: 16),
               label: const Text('پاک کردن'),
@@ -722,5 +726,20 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+}
+
+// کلاس کمکی برای ویبره
+class VibrationHelper {
+  static Future<void> vibrate({int durationMs = 500}) async {
+    try {
+      if (await Vibration.hasVibrator()) {
+        Vibration.vibrate(duration: durationMs);
+      } else {
+        debugPrint('این دستگاه از ویبره پشتیبانی نمی‌کند');
+      }
+    } catch (e) {
+      debugPrint('خطا در ویبره: $e');
+    }
   }
 }

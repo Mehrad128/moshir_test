@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:moshir_test/services/biometric_service.dart';
+import 'package:moshir_test/services/biometric_settings.dart';
+import 'package:moshir_test/services/face_camera_service.dart'; // اضافه شد
 import 'package:moshir_test/services/auth_service.dart';
 import 'package:moshir_test/services/biometric_types.dart';
 import 'package:moshir_test/ui/home/home.dart';
@@ -20,22 +22,26 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   // ============== وضعیت‌های UI ==============
   bool _isLogin = true;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _rememberMe = false;
   bool _isLoading = false;
-  
-  // ============== وضعیت بیومتریک ==============
+
+  // ============== وضعیت بیومتریک قوی ==============
   bool _biometricAvailable = false;
   bool _biometricEnabled = false;
   String _biometricName = 'بیومتریک';
   IconData _biometricIcon = Icons.fingerprint;
   bool _hasFingerprint = false;
   bool _hasFace = false;
-  
+
+  // ============== وضعیت تشخیص چهره با دوربین ==============
+  bool _faceCameraAvailable = false;
+  bool _faceCameraEnabled = false;
+
   // ============== انیمیشن‌ها ==============
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -46,6 +52,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     super.initState();
     _initAnimations();
     _checkBiometricStatus();
+    _checkFaceCameraStatus();
   }
 
   void _initAnimations() {
@@ -53,20 +60,20 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    
+
     _fadeAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     );
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
-    
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+
     _animationController.forward();
   }
 
@@ -79,7 +86,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // ============== بررسی وضعیت بیومتریک ==============
+  // ============== بررسی وضعیت بیومتریک قوی ==============
   Future<void> _checkBiometricStatus() async {
     try {
       final service = BiometricService();
@@ -88,7 +95,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       final name = await service.getBiometricName();
       final icon = await service.getBiometricIcon();
       final types = await service.getAvailableBiometrics();
-      
+
       if (mounted) {
         setState(() {
           _biometricAvailable = available;
@@ -99,9 +106,9 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           _hasFace = types.contains(MyBiometricType.face);
         });
       }
-      
+
       _logBiometricStatus(available, enabled, types);
-      
+
       if (_biometricEnabled && mounted) {
         _showBiometricPrompt();
       }
@@ -117,7 +124,37 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     }
   }
 
-  void _logBiometricStatus(bool available, bool enabled, List<MyBiometricType> types) {
+  // ============== بررسی وضعیت تشخیص چهره با دوربین ==============
+  Future<void> _checkFaceCameraStatus() async {
+    try {
+      final service = FaceCameraService();
+      final available = await service.hasFrontCamera();
+      final enabled = await service.isEnabled;
+      if (mounted) {
+        setState(() {
+          _faceCameraAvailable = available;
+          _faceCameraEnabled = enabled;
+        });
+      }
+      print('📱 وضعیت تشخیص چهره با دوربین:');
+      print('   - دوربین جلو موجود: $available');
+      print('   - فعال: $enabled');
+    } catch (e) {
+      print('❌ خطا در بررسی دوربین جلو: $e');
+      if (mounted) {
+        setState(() {
+          _faceCameraAvailable = false;
+          _faceCameraEnabled = false;
+        });
+      }
+    }
+  }
+
+  void _logBiometricStatus(
+    bool available,
+    bool enabled,
+    List<MyBiometricType> types,
+  ) {
     print('📱 وضعیت بیومتریک:');
     print('   - پلتفرم: ${kIsWeb ? "وب" : "موبایل"}');
     print('   - موجود: $available');
@@ -127,12 +164,12 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     print('   - تشخیص چهره: ${types.contains(MyBiometricType.face)}');
   }
 
-  // ============== نمایش دیالوگ بیومتریک ==============
+  // ============== نمایش دیالوگ بیومتریک قوی ==============
   Future<void> _showBiometricPrompt() async {
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     if (!mounted) return;
-    
+
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
@@ -158,7 +195,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   // ============== عملیات‌های احراز هویت ==============
   Future<void> _handleBiometricLogin() async {
     setState(() => _isLoading = true);
-    
+
     final service = BiometricService();
     final result = await service.authenticate(
       reason: 'ورود به مشیر با $_biometricName',
@@ -178,19 +215,70 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     }
   }
 
+  // ============== عملیات ورود با چهره (دوربین) ==============
+  Future<void> _handleFaceLogin() async {
+    final service = FaceCameraService();
+
+    // بررسی فعال بودن سرویس چهره
+    final isEnabled = await service.isEnabled;
+    if (!isEnabled) {
+      // اگر فعال نیست، کاربر را به صفحه تنظیمات هدایت کن
+      final shouldNavigate = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('ورود با چهره'),
+          content: const Text(
+            'ورود با چهره هنوز پیکربندی نشده است. آیا می‌خواهید به صفحه تنظیمات بروید؟',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('خیر'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('بله'),
+            ),
+          ],
+        ),
+      );
+      if (shouldNavigate == true) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BiometricSettingsPage()),
+        );
+      }
+      return;
+    }
+
+    // اگر فعال است، احراز هویت را انجام بده
+    setState(() => _isLoading = true);
+    final success = await service.authenticateWithFace();
+    setState(() => _isLoading = false);
+
+    if (success && mounted) {
+      _navigateToHome();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ ورود با چهره موفقیت‌آمیز بود')),
+      );
+    } else if (mounted) {
+      _showErrorDialog('خطا', 'احراز هویت با چهره ناموفق بود');
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    
+
     await Future.delayed(const Duration(seconds: 1));
-    
+
     final authService = AuthService();
     final success = await authService.login(
       _usernameController.text.trim(),
       _passwordController.text,
     );
-    
+
     if (success && mounted) {
       if (_rememberMe) {
         final service = BiometricService();
@@ -200,7 +288,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
         );
         await _checkBiometricStatus();
       }
-      
+
       setState(() => _isLoading = false);
       _navigateToHome();
     } else if (mounted) {
@@ -218,19 +306,19 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     }
 
     setState(() => _isLoading = true);
-    
+
     await Future.delayed(const Duration(seconds: 1));
-    
+
     final authService = AuthService();
     final success = await authService.register(
       _usernameController.text.trim(),
       _passwordController.text,
     );
-    
+
     if (success && mounted) {
       setState(() => _isLoading = false);
       _showSuccessDialog('ثبت‌نام با موفقیت انجام شد');
-      
+
       setState(() {
         _isLogin = true;
         _passwordController.clear();
@@ -326,7 +414,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
 
   Widget _buildUsernameField() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return TextFormField(
       controller: _usernameController,
       style: TextStyle(color: isDark ? Colors.white : Colors.black),
@@ -362,7 +450,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     String? label,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return TextFormField(
       controller: controller,
       obscureText: !isVisible,
@@ -407,7 +495,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           children: [
             Checkbox(
               value: _rememberMe,
-              onChanged: (value) => setState(() => _rememberMe = value ?? false),
+              onChanged: (value) =>
+                  setState(() => _rememberMe = value ?? false),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -432,7 +521,9 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       width: double.infinity,
       height: 54,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : (_isLogin ? _handleLogin : _handleRegister),
+        onPressed: _isLoading
+            ? null
+            : (_isLogin ? _handleLogin : _handleRegister),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
@@ -452,74 +543,72 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
               )
             : Text(
                 _isLogin ? 'ورود' : 'ثبت‌نام',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
       ),
     );
   }
 
+  // ============== بخش بیومتریک (شامل دکمه‌های جداگانه) ==============
   Widget _buildBiometricSection() {
-    if (!_biometricAvailable) {
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(top: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.info_outline, color: Colors.grey.shade600, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'دستگاه شما از بیومتریک پشتیبانی نمی‌کند',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Column(
       children: [
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: OutlinedButton.icon(
-            onPressed: _isLoading ? null : _handleBiometricLogin,
-            icon: Icon(_biometricIcon, color: Colors.blue),
-            label: Text(
-              _biometricEnabled
-                  ? 'ورود با $_biometricName'
-                  : 'پیکربندی ورود با $_biometricName',
-              style: const TextStyle(fontSize: 16, color: Colors.blue),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.blue),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+        // دکمه بیومتریک قوی (اثر انگشت/چهره امن)
+        if (_biometricAvailable)
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: OutlinedButton.icon(
+              onPressed: _isLoading ? null : _handleBiometricLogin,
+              icon: Icon(_biometricIcon, color: Colors.blue),
+              label: Text(
+                _biometricEnabled
+                    ? 'ورود با $_biometricName'
+                    : 'پیکربندی ورود با $_biometricName',
+                style: const TextStyle(fontSize: 16, color: Colors.blue),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.blue),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
-        ),
-        if (_hasFingerprint || _hasFace) ...[
-          const SizedBox(height: 8),
-          Text(
-            'روش‌های موجود: ${_buildAvailableMethods()}',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-            textAlign: TextAlign.center,
+
+        // دکمه تشخیص چهره با دوربین
+        if (_faceCameraAvailable) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: OutlinedButton.icon(
+              onPressed: _isLoading ? null : _handleFaceLogin,
+              icon: const Icon(Icons.face, color: Colors.green),
+              label: Text(
+                _faceCameraEnabled
+                    ? 'ورود با چهره (دوربین)'
+                    : 'پیکربندی ورود با چهره',
+                style: const TextStyle(fontSize: 16, color: Colors.green),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.green),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
           ),
         ],
-        const SizedBox(height: 8),
+
+        // پیام راهنما
+        const SizedBox(height: 16),
         Text(
-          _biometricEnabled
-              ? 'با اثر انگشت یا چهره خود سریع وارد شوید'
+          _biometricEnabled || _faceCameraEnabled
+              ? 'با روش‌های بیومتریک سریع وارد شوید'
               : 'پس از ورود، گزینه "مرا به خاطر بسپار" را فعال کنید',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           textAlign: TextAlign.center,
@@ -528,16 +617,9 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     );
   }
 
-  String _buildAvailableMethods() {
-    final methods = <String>[];
-    if (_hasFingerprint) methods.add('اثر انگشت');
-    if (_hasFace) methods.add('تشخیص چهره');
-    return methods.join(' و ');
-  }
-
   Widget _buildToggleAuthMode() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -558,7 +640,10 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           },
           child: Text(
             _isLogin ? 'ثبت‌نام' : 'ورود',
-            style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
@@ -592,7 +677,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                   SizedBox(height: size.height * 0.08),
                   _buildHeader(),
                   SizedBox(height: size.height * 0.04),
-                  
+
                   SlideTransition(
                     position: _slideAnimation,
                     child: Container(
@@ -629,7 +714,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                                 controller: _confirmPasswordController,
                                 isVisible: _isConfirmPasswordVisible,
                                 onToggle: () => setState(
-                                  () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible,
+                                  () => _isConfirmPasswordVisible =
+                                      !_isConfirmPasswordVisible,
                                 ),
                                 label: 'تکرار رمز عبور',
                               ),
@@ -637,13 +723,13 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                             const SizedBox(height: 24),
                             if (_isLogin) _buildLoginOptions(),
                             _buildSubmitButton(),
-                            _buildBiometricSection(),
+                            _buildBiometricSection(), // بخش جدید شامل دو دکمه
                           ],
                         ),
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
                   _buildToggleAuthMode(),
                   SizedBox(height: size.height * 0.04),

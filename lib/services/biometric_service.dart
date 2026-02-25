@@ -43,10 +43,10 @@ class BiometricService {
       if (_isWeb) {
         return await _localAuth.isDeviceSupported();
       }
-      
+
       final canCheck = await _localAuth.canCheckBiometrics;
       final isSupported = await _localAuth.isDeviceSupported();
-      
+
       return canCheck || isSupported;
     } catch (e) {
       print('❌ خطا در بررسی بیومتریک: $e');
@@ -58,7 +58,7 @@ class BiometricService {
   Future<List<MyBiometricType>> getAvailableBiometrics() async {
     try {
       final List<MyBiometricType> result = [];
-      
+
       if (_isWeb) {
         final isSupported = await _localAuth.isDeviceSupported();
         if (isSupported) {
@@ -66,12 +66,12 @@ class BiometricService {
         }
         return result;
       }
-      
+
       final types = await _localAuth.getAvailableBiometrics();
-      
+
       for (var type in types) {
         final typeStr = type.toString().toLowerCase();
-        
+
         if (typeStr.contains('fingerprint')) {
           result.add(MyBiometricType.fingerprint);
         } else if (typeStr.contains('face')) {
@@ -82,7 +82,7 @@ class BiometricService {
           result.add(MyBiometricType.other);
         }
       }
-      
+
       return result;
     } catch (e) {
       print('❌ خطا در دریافت انواع بیومتریک: $e');
@@ -97,7 +97,7 @@ class BiometricService {
       if (types.isNotEmpty) {
         return types.first.persianName;
       }
-      
+
       if (_isWeb) return 'WebAuthn';
       return 'بیومتریک';
     } catch (e) {
@@ -175,10 +175,7 @@ class BiometricService {
           biometricType: await _getUsedBiometricType(),
         );
       } else {
-        return BiometricAuthResult(
-          success: false,
-          message: '❌ عملیات لغو شد',
-        );
+        return BiometricAuthResult(success: false, message: '❌ عملیات لغو شد');
       }
     } catch (e) {
       return BiometricAuthResult(
@@ -227,7 +224,7 @@ class BiometricService {
       final authResult = await authenticate(
         reason: 'برای فعال‌سازی، احراز هویت کنید',
       );
-      
+
       if (!authResult.success) return false;
 
       await _secureStorage.write(key: _userIdKey, value: userId);
@@ -259,7 +256,7 @@ class BiometricService {
       final authResult = await authenticate(
         reason: 'برای ورود خودکار، احراز هویت کنید',
       );
-      
+
       if (!authResult.success) {
         return {'error': authResult.message};
       }
@@ -284,7 +281,7 @@ class BiometricService {
     final enabled = await isEnabled;
     final types = await getAvailableBiometrics();
     final name = await getBiometricName();
-    
+
     return {
       'available': available,
       'enabled': enabled,

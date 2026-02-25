@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moshir_test/services/biometric_service.dart';
 import 'package:moshir_test/services/biometric_types.dart';
-import 'package:moshir_test/services/face_camera_service.dart'; // سرویس جدید
+import 'package:moshir_test/services/face_camera_service.dart';
+import 'package:moshir_test/services/auth_service.dart'; // فرض می‌کنیم این سرویس وجود دارد
 
 class BiometricSettingsPage extends StatefulWidget {
   const BiometricSettingsPage({super.key});
@@ -14,15 +15,16 @@ class BiometricSettingsPage extends StatefulWidget {
 class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
   final _bioService = BiometricService();
   final _faceService = FaceCameraService();
+  final _authService = AuthService(); // سرویس احراز هویت
 
   bool _isLoading = true;
-  bool _hasStrongBiometric = false; // وجود بیومتریک قوی (local_auth)
-  bool _strongEnabled = false; // وضعیت فعال بودن بیومتریک قوی
+  bool _hasStrongBiometric = false;
+  bool _strongEnabled = false;
   String _strongName = 'اثر انگشت';
   IconData _strongIcon = Icons.fingerprint;
 
-  bool _hasFrontCamera = false; // وجود دوربین جلو
-  bool _faceCameraEnabled = false; // وضعیت فعال بودن تشخیص چهره با دوربین
+  bool _hasFrontCamera = false;
+  bool _faceCameraEnabled = false;
 
   @override
   void initState() {
@@ -33,7 +35,6 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    // بررسی بیومتریک قوی
     _hasStrongBiometric = await _bioService.isAvailable;
     if (_hasStrongBiometric) {
       final types = await _bioService.getAvailableBiometrics();
@@ -50,7 +51,6 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
       _strongEnabled = await _bioService.isEnabled;
     }
 
-    // بررسی دوربین جلو
     _hasFrontCamera = await _faceService.hasFrontCamera();
     if (_hasFrontCamera) {
       _faceCameraEnabled = await _faceService.isEnabled;
@@ -62,7 +62,6 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
   Future<void> _toggleStrong(bool value) async {
     setState(() => _isLoading = true);
     if (value) {
-      // فعال‌سازی بیومتریک قوی
       final success = await _bioService.enableBiometric(
         userId: 'current_user_id',
         password: 'current_password',
@@ -77,10 +76,23 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
 
   Future<void> _toggleFaceCamera(bool value) async {
     setState(() => _isLoading = true);
+
+    final currentUserId = await _authService.getCurrentUser();
+    if (currentUserId == null) {
+      _showMessage('❌ کاربر وارد نشده است');
+      setState(() => _isLoading = false);
+      return;
+    }
+
     if (value) {
-      // فعال‌سازی تشخیص چهره با دوربین
-      final success = await _faceService.enableFaceCamera();
-      if (success) _showMessage('✅ تشخیص چهره با دوربین فعال شد');
+      final success = await _faceService.enableFaceCamera(
+        userId: currentUserId,
+      );
+      if (success) {
+        _showMessage('✅ تشخیص چهره با دوربین فعال شد');
+      } else {
+        _showMessage('❌ فعال‌سازی ناموفق بود');
+      }
     } else {
       await _faceService.disableFaceCamera();
       _showMessage('🔴 تشخیص چهره با دوربین غیرفعال شد');
@@ -192,11 +204,7 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: Colors.blue,
-          ),
+          Switch(value: value, onChanged: onChanged, activeColor: Colors.blue),
         ],
       ),
     );
@@ -269,9 +277,15 @@ class _BiometricSettingsPageState extends State<BiometricSettingsPage> {
       _showMessage('دوربین جلو موجود نیست');
       return;
     }
-    // در عمل باید از faceService.authenticateWithFace() استفاده کنید
     final success = await _faceService.authenticateWithFace();
-    _showDialog(success ? '✅ موفق' : '❌ ناموفق', success ? 'چهره تطابق داشت' : 'خطا در تشخیص');
+    if (success) {
+      _showDialog('✅ موفق', 'چهره تطابق داشت');
+    } else {
+      _showDialog(
+        '❌ ناموفق',
+        'چهره شناسایی نشد یا با کاربر ثبت‌شده مطابقت نداشت',
+      );
+    }
   }
 
   void _showDialog(String title, String content) {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moshir_test/main.dart';
-import 'package:moshir_test/test/test_firebase_page.dart';
 import 'package:moshir_test/ui/screens/lazy_loading.dart';
 import 'package:moshir_test/ui/screens/settings.dart';
 import 'package:moshir_test/ui/screens/user_profile.dart';
